@@ -1,0 +1,108 @@
+<!doctype html>
+<html>
+  <head>
+    <title>WebGIS</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <style>
+      #map {
+        height: 100vh;
+      }
+
+      #stateFilter {
+        position: absolute;
+        top: 10px;
+        left: 60px;
+        z-index: 1000;
+        padding: 5px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Dropdown Filter -->
+    <select id="stateFilter">
+      <option value="">All States</option>
+      <option value="Texas">Texas</option>
+      <option value="California">California</option>
+      <option value="Florida">Florida</option>
+      <option value="Colorado">Colorado</option>
+      <option value="Nevada">Nevada</option>
+      <option value="Arizona">Arizona</option>
+      <option value="New York">New York</option>
+      <option value="Washington">Washington</option>
+      <option value="Ohio">Ohio</option>
+    </select>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <script>
+      // membuat map
+      var map = L.map("map").setView([37, -95], 4);
+
+      // basemap OSM
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+
+      // ================= WMS =================
+
+      // WMS Countries
+      var wmsCountries = L.tileLayer
+        .wms("https://ahocevar.com/geoserver/wms", {
+          layers: "opengeo:countries",
+          format: "image/png",
+          transparent: true,
+        })
+        .addTo(map);
+
+      // WMS States
+      var wmsStates = L.tileLayer
+        .wms("https://ahocevar.com/geoserver/wms", {
+          layers: "topp:states",
+          format: "image/png",
+          transparent: true,
+        })
+        .addTo(map);
+
+      // ================= CQL FILTER =================
+
+      document.getElementById("stateFilter").addEventListener("change", function () {
+        var selected = this.value;
+
+        if (selected === "") {
+          wmsStates.setParams({
+            CQL_FILTER: null,
+          });
+        } else {
+          wmsStates.setParams({
+            CQL_FILTER: "STATE_NAME='" + selected + "'",
+          });
+        }
+      });
+
+      // ================= WFS =================
+
+      fetch("https://ahocevar.com/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=topp:states&outputFormat=application/json")
+        .then((response) => response.json())
+
+        .then((data) => {
+          var wfsLayer = L.geoJSON(data, {
+            onEachFeature: function (feature, layer) {
+              layer.bindPopup(feature.properties.STATE_NAME);
+            },
+          }).addTo(map);
+
+          // toggle layer
+          var overlayMaps = {
+            "WMS Countries": wmsCountries,
+            "WMS States": wmsStates,
+            "WFS States": wfsLayer,
+          };
+
+          L.control.layers(null, overlayMaps).addTo(map);
+        });
+    </script>
+  </body>
+</html>
